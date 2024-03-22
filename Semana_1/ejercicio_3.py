@@ -1,0 +1,5 @@
+print('Todos los numeros del 0 al 10: ',list(range(0,11,1)))
+print('Todos los numeros del -10 al 0: ',list(range(-10,1,1)))
+print('Todos los numeros pares del 0 al 20:',[n for n in range(0,21,1) if n%2 == 0])
+print('Todos los numeros impare del -20 al :',[n for n in range(-20,1,1) if n%2 != 0])
+print('Todos los numeros divisibles por 5 del 0 al 50:',[n for n in range(0,51,1) if n%5 == 0])
