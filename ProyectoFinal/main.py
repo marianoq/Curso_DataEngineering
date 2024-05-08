@@ -4,6 +4,7 @@ import psycopg2
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from datetime import datetime
+import pandas as pd
 
 def connect_to_redshift():
     try:
@@ -64,22 +65,24 @@ def connect_to_spotify():
         print("Error al conectar a Spotify:", error)
         return None
 
-def get_top_tracks_in_argentina(spotify_client, cursor):
+def get_top_tracks_in_argentina(spotify_client):
     try:
         # "Top 50 Argentina" de Spotify
         top_tracks = spotify_client.playlist_tracks('37i9dQZEVXbMMy2roB9myp')
 
-        print("==Top 50==")
+        top_tracks_data = []
         for index, track in enumerate(top_tracks['items'], start=1):
             track_name = track['track']['name']
             artist_name = track['track']['artists'][0]['name']
             top_position = index
             date_added = datetime.now().date()
-            insert_track(cursor, artist_name, track_name, top_position, date_added)
-            print(f"{top_position}. {artist_name} - {track_name}")
+            top_tracks_data.append({'Position': top_position, 'Artist': artist_name, 'Track': track_name})
+
+        return pd.DataFrame(top_tracks_data)
 
     except Exception as e:
         print("Error al obtener los tracks más escuchados en Argentina:", e)
+        return None
 
 cnx, cursor = connect_to_redshift()
 spotify_client = connect_to_spotify()
@@ -88,8 +91,10 @@ if cnx and cursor and spotify_client:
     # Avanzo si ambas conexiones son exitosas
     try:
         create_table(cursor)
-        get_top_tracks_in_argentina(spotify_client, cursor)
-        cnx.commit()
+        top_tracks_df = get_top_tracks_in_argentina(spotify_client)
+        if top_tracks_df is not None:
+            print(top_tracks_df) # Muestro datos en un DF
+            cnx.commit()
     except Exception as e:
         print("Error al procesar datos de Spotify:", e)
         cnx.rollback() 
