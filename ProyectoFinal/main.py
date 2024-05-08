@@ -41,11 +41,11 @@ def create_table(cursor):
     except psycopg2.Error as e:
         print("Error al crear la tabla:", e)
 
-def insert_track(cursor,artist_name,track_name,top_position,date_added):
+def insert_track(cursor, artist_name, track_name, top_position, date_added):
     try:
         # Insertar datos
         insert_query = "INSERT INTO quirogamariano_coderhouse.top_tracks (artist_name,track_name,top_position,date_added) VALUES (%s, %s, %s, %s)"
-        cursor.execute(insert_query, (artist_name,track_name,top_position,date_added))
+        cursor.execute(insert_query, (artist_name, track_name, top_position, date_added))
     except psycopg2.Error as e:
         print("Error al insertar datos en la tabla:", e)
 
@@ -65,20 +65,29 @@ def connect_to_spotify():
         print("Error al conectar a Spotify:", error)
         return None
 
-def get_top_tracks_in_argentina(spotify_client):
+def get_top_tracks_in_argentina(spotify_client, cursor):
     try:
         # "Top 50 Argentina" de Spotify
         top_tracks = spotify_client.playlist_tracks('37i9dQZEVXbMMy2roB9myp')
 
         top_tracks_data = []
+        print("==Top 50==")
         for index, track in enumerate(top_tracks['items'], start=1):
             track_name = track['track']['name']
             artist_name = track['track']['artists'][0]['name']
             top_position = index
             date_added = datetime.now().date()
-            top_tracks_data.append({'Position': top_position, 'Artist': artist_name, 'Track': track_name})
+            insert_track(cursor, artist_name, track_name, top_position, date_added)
+            top_tracks_data.append({'Top Position': top_position, 'Artist Name': artist_name, 'Track Name': track_name})
 
-        return pd.DataFrame(top_tracks_data)
+            print(f"{top_position}. {artist_name} - {track_name}")
+
+        # Convertir los datos a DataFrame
+        df = pd.DataFrame(top_tracks_data)
+        print("\nMuestro datos insertados en DataFrame:")
+        print(df)
+
+        return df
 
     except Exception as e:
         print("Error al obtener los tracks más escuchados en Argentina:", e)
@@ -91,10 +100,8 @@ if cnx and cursor and spotify_client:
     # Avanzo si ambas conexiones son exitosas
     try:
         create_table(cursor)
-        top_tracks_df = get_top_tracks_in_argentina(spotify_client)
-        if top_tracks_df is not None:
-            print(top_tracks_df) # Muestro datos en un DF
-            cnx.commit()
+        top_tracks_df = get_top_tracks_in_argentina(spotify_client, cursor)
+        cnx.commit()
     except Exception as e:
         print("Error al procesar datos de Spotify:", e)
         cnx.rollback() 
