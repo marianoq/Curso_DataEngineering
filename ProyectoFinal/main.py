@@ -1,29 +1,72 @@
-import os
 from dotenv import load_dotenv
 import psycopg2
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from datetime import datetime
 import pandas as pd
+from cryptography.fernet import Fernet
+import base64
+import os
+import logging
 
+# Configuración del registro de errores
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+# Cargar variables de entorno desde el archivo .env
+load_dotenv()
+
+with open('clave_proyectofinal.key', 'rb') as file:
+    clave = file.read()
+
+# Crear un objeto Fernet con la clave
+cipher_suite = Fernet(clave)
+
+# Función para descifrar los datos encriptados
+def decrypt_data(encrypted_data):
+    try:
+        decrypted_data = cipher_suite.decrypt(base64.b64decode(encrypted_data)).decode()
+        return decrypted_data
+    except Exception as e:
+        logging.error(f"Error al descifrar datos: {e}")
+        return None
+
+# Gestión de errores en la obtención de datos de las variables de entorno
+def get_decrypted_data(env_variable):
+    encrypted_data = os.getenv(env_variable)
+    if encrypted_data:
+        decrypted_data = decrypt_data(encrypted_data)
+        if decrypted_data:
+            return decrypted_data
+    logging.error(f"No se pudo obtener o descifrar {env_variable}")
+    return None
+
+# Datos de conexión encriptados
+DB_DBNAME_encrypted = get_decrypted_data('DB_DBNAME')
+DB_USER_encrypted = get_decrypted_data('DB_USER')
+DB_PASSWORD_encrypted = get_decrypted_data('DB_PASSWORD')
+DB_HOST_encrypted = get_decrypted_data('DB_HOST')
+DB_PORT_encrypted = get_decrypted_data('DB_PORT')
+SP_CLIENT_ID_encrypted = get_decrypted_data('SP_CLIENT_ID')
+SP_CLIENT_SECRET_encrypted = get_decrypted_data('SP_CLIENT_SECRET')
+
+# Función para conectar a Redshift
 def connect_to_redshift():
     try:
-        # Conexión a Redshift
-        load_dotenv()
         cnx = psycopg2.connect(
-            dbname=os.getenv('DB_DBNAME'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            host=os.getenv('DB_HOST'),
-            port=os.getenv('DB_PORT')
+            dbname=DB_DBNAME_encrypted,
+            user=DB_USER_encrypted,
+            password=DB_PASSWORD_encrypted,
+            host=DB_HOST_encrypted,
+            port=DB_PORT_encrypted
         )
         cursor = cnx.cursor()
-        print("- Conexión a Redshift establecida correctamente")
+        logging.info("Conexión a Redshift establecida correctamente")
         return cnx, cursor
     except psycopg2.Error as e:
-        print("Error al conectar a Redshift:", e)
+        logging.error(f"Error al conectar a Redshift: {e}")
         return None, None
 
+# Gestión de errores en la creación de tabla
 def create_table(cursor):
     try:
         # Crear tabla si no existe
@@ -32,82 +75,94 @@ def create_table(cursor):
             id INT IDENTITY(1,1) PRIMARY KEY,
             artist_name VARCHAR(255),
             track_name VARCHAR(255),
-            top_position INT,
+            album_name VARCHAR(255),
+            top_position INT,            
+            playlist_count INT,
             date_added DATE
         )
         """
         cursor.execute(create_table_query)
-        print("- Tabla creada exitosamente o ya existe.")
+        logging.info("Tabla creada exitosamente o ya existe.")
     except psycopg2.Error as e:
-        print("Error al crear la tabla:", e)
+        logging.error(f"Error al crear la tabla: {e}")
 
-def insert_track(cursor, artist_name, track_name, top_position, date_added):
+# Gestión de errores en la inserción de datos
+def insert_tracks(cursor, tracks):
     try:
         # Insertar datos
-        insert_query = "INSERT INTO quirogamariano_coderhouse.top_tracks (artist_name,track_name,top_position,date_added) VALUES (%s, %s, %s, %s)"
-        cursor.execute(insert_query, (artist_name, track_name, top_position, date_added))
+        insert_query = "INSERT INTO quirogamariano_coderhouse.top_tracks (artist_name, track_name, album_name, top_position, playlist_count, date_added) VALUES (%s, %s, %s, %s, %s, %s)"
+        cursor.executemany(insert_query, tracks)
     except psycopg2.Error as e:
-        print("Error al insertar datos en la tabla:", e)
+        logging.error(f"Error al insertar datos en la tabla: {e}")
 
+# Función para conectar a Spotify
 def connect_to_spotify():
     try:
-        # Autenticación en Spotify
-        load_dotenv()
-        client_id = os.getenv('SP_CLIENT_ID')
-        client_secret = os.getenv('SP_CLIENT_SECRET')
-
-        client_credentials_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
+        client_credentials_manager = SpotifyClientCredentials(SP_CLIENT_ID_encrypted, SP_CLIENT_SECRET_encrypted)
         sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
-
-        print("- Conexión a Spotify establecida correctamente\n")
+        logging.info("Conexión a Spotify establecida correctamente")
         return sp
-    except Exception as error:
-        print("Error al conectar a Spotify:", error)
+    except Exception as e:
+        logging.error(f"Error al conectar a Spotify: {e}")
         return None
-
-def get_top_tracks_in_argentina(spotify_client, cursor):
+    
+# Gestión de errores en la obtención de los tracks
+def get_top_tracks_in_argentina(spotify_client):
     try:
         # "Top 50 Argentina" de Spotify
         top_tracks = spotify_client.playlist_tracks('37i9dQZEVXbMMy2roB9myp')
 
         top_tracks_data = []
-        print("==Top 50==")
+        logging.info("==Top 50==")
         for index, track in enumerate(top_tracks['items'], start=1):
             track_name = track['track']['name']
             artist_name = track['track']['artists'][0]['name']
-            top_position = index
+            top_position = index            
+
+            # Obtener el álbum de la pista
+            album_id = track['track']['album']['id']
+            album_info = spotify_client.album(album_id)
+            album_name = album_info['name']
+
+            # Cuento en la cantidad de listas que el tema esta en ellas
+            search_query = f"track:\"{track_name}\" artist:\"{artist_name}\""
+            search_results = spotify_client.search(q=search_query, type='track')
+            playlist_count = search_results['tracks']['total']
+
             date_added = datetime.now().date()
-            insert_track(cursor, artist_name, track_name, top_position, date_added)
-            top_tracks_data.append({'Top Position': top_position, 'Artist Name': artist_name, 'Track Name': track_name})
 
-            print(f"{top_position}. {artist_name} - {track_name}")
+            top_tracks_data.append((artist_name, track_name, album_name, top_position, playlist_count, date_added))
 
-        # Convertir los datos a DataFrame
-        df = pd.DataFrame(top_tracks_data)
-        print("\nMuestro datos insertados en DataFrame:")
-        print(df)
+            logging.info(f"{top_position}. {artist_name} - {track_name} (Album: {album_name}) - Playlists: {playlist_count}")
+
+        # DF para mostrar datos en consola
+        df = pd.DataFrame(top_tracks_data, columns=['Artist Name', 'Track Name', 'Album Name', 'Top Position', 'Playlist Count', 'Date Added'])
+        logging.info("\nMuestro datos insertados en DataFrame:")
+        logging.info(df)
 
         return df
 
     except Exception as e:
-        print("Error al obtener los tracks más escuchados en Argentina:", e)
+        logging.error(f"Error al obtener los tracks más escuchados en Argentina: {e}")
         return None
 
 cnx, cursor = connect_to_redshift()
 spotify_client = connect_to_spotify()
 
 if cnx and cursor and spotify_client:
-    # Avanzo si ambas conexiones son exitosas
+    # Si ambas conexiones son exitosas continuo
     try:
         create_table(cursor)
-        top_tracks_df = get_top_tracks_in_argentina(spotify_client, cursor)
-        cnx.commit()
+        top_tracks_df = get_top_tracks_in_argentina(spotify_client)
+        if not top_tracks_df.empty:
+            insert_tracks(cursor, top_tracks_df.values.tolist())
+            cnx.commit()
     except Exception as e:
-        print("Error al procesar datos de Spotify:", e)
+        logging.error(f"Error al procesar datos de Spotify: {e}")
         cnx.rollback() 
     finally:
-        # Cierro conexión a Redshift
+        # Cierro conexiones
         cursor.close()
         cnx.close()
 else:
-    print("No se pudo completar el proceso debido a errores de conexión.")
+    logging.error("No se pudo completar el proceso debido a errores de conexión.")
