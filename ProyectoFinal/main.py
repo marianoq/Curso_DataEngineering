@@ -41,7 +41,7 @@ def create_table(engine):
                 artist_genre VARCHAR(255),
                 playlist_count INT,
                 date_added DATE,
-                spotify_id VARCHAR(255) UNIQUE
+                FOREIGN KEY (spotify_id) REFERENCES quirogamariano_coderhouse.spotify_tracks(spotify_id)
             )
             """
             connection.execute(text(create_table_query))
