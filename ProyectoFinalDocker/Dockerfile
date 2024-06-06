@@ -1,26 +1,28 @@
-# Usar una imagen oficial de Python como imagen base
+# Usa una imagen base de Python ligera
 FROM python:3.12
 
-# Establecer el directorio de trabajo
+# Instala las dependencias necesarias para Apache Airflow y el script
+RUN pip install --no-cache-dir apache-airflow spotipy pandas tabulate psycopg2-binary
+
+# Establece el directorio de trabajo
 WORKDIR /app
 
-# Copiar los archivos de requerimientos a la imagen
-COPY requirements.txt requirements.txt
+# Copia los archivos de tu proyecto
+COPY dags/ ./dags/
+COPY scripts/ ./scripts/
+COPY requirements.txt .
 
-# Instalar las dependencias de Python necesarias (incluyendo Airflow)
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip freeze > installed_packages.txt \
-    && cat installed_packages.txt
+# Instala las dependencias del proyecto
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Crear directorio para DAGs
-RUN mkdir -p /app/dags
+# Copia el archivo de DAG a la carpeta de Airflow
+COPY dags/my_dag.py /usr/local/airflow/dags/my_dag.py
 
-# Copiar el archivo del DAG a la carpeta de dags de Airflow
-COPY dags/my_dag.py /app/dags/my_dag.py
+# Configura la variable de entorno de Airflow
+ENV AIRFLOW_HOME=/usr/local/airflow
 
-# Copiar toda la carpeta de scripts al contenedor
-COPY scripts /app/scripts
+# Inicializa la base de datos de Airflow
+RUN airflow db init
 
-# Inicializar la base de datos de Airflow y ejecutar el scheduler
-CMD airflow db init && airflow scheduler
+# Comando para ejecutar Airflow en el contenedor
+CMD ["airflow", "scheduler"]

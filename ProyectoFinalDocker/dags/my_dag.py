@@ -1,16 +1,15 @@
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.operators.python_operator import PythonOperator
 from datetime import datetime, timedelta
 import sys
-sys.path.insert(0, '/app/scripts')
 
-from main import main  # Importar la función principal de main.py
+# Asegura que el script `main.py` está en el path
+sys.path.append('/app/scripts')
 
-# Función que será ejecutada por el PythonOperator
-def my_task():
-    main()
+def ejecutar_script():
+    import main
+    main.main()
 
-# Definir los argumentos por defecto para el DAG
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -20,22 +19,17 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-# Definir el DAG
 dag = DAG(
-    'spotify_dag_diario',
-    description='Un DAG que se ejecuta diariamente',
-    default_args=default_args,
+    'mi_dag_diario',
+    description='Un DAG que corre diariamente',
     schedule_interval=timedelta(days=1),
     start_date=datetime(2023, 1, 1),
-    catchup=False
+    catchup=False,
+    default_args=default_args,
 )
 
-# Definir la tarea utilizando PythonOperator
-run_my_task = PythonOperator(
-    task_id='download_spotify_data',
-    python_callable=my_task,
-    dag=dag
+tarea = PythonOperator(
+    task_id='ejecutar_script',
+    python_callable=ejecutar_script,
+    dag=dag,
 )
-
-# Establecer el orden de ejecución de las tareas
-run_my_task

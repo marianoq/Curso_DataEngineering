@@ -1,0 +1,20 @@
+version: '3'
+
+services:
+  airflow:
+    build: .
+    container_name: airflow_container
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////usr/local/airflow/airflow.db
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+      - ./scripts:/app/scripts
+    command: >
+      bash -c "
+      airflow db init &&
+      airflow users create -u admin -p admin -r Admin -e admin@example.com -f Admin -l User &&
+      airflow webserver & 
+      airflow scheduler"
+    ports:
+      - "8080:8080"
