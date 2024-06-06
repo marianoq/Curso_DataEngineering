@@ -152,7 +152,7 @@ def insert_dataframe_to_db(engine, df):
         logging.error(f"Error al insertar DataFrame en la base de datos: {e}")
     return pd.DataFrame(inserted_rows)
 
-def funcion_principal():
+def main():
     engine = create_db_engine()
     spotify_client = connect_to_spotify()
 
@@ -170,4 +170,4 @@ def funcion_principal():
         logging.error("No se pudo completar el proceso debido a errores de conexión.")
 
 if __name__ == '__main__':
-    funcion_principal()
+    main()

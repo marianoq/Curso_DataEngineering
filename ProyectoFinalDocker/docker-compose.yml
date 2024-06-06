@@ -9,7 +9,7 @@ services:
       - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////usr/local/airflow/airflow.db
     volumes:
       - ./dags:/usr/local/airflow/dags
-      - ./scripts:/app/scripts
+      - ./dags:/app/scripts
     command: >
       bash -c "
       airflow db init &&

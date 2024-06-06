@@ -1,17 +1,10 @@
+from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
-from datetime import datetime, timedelta
-import sys
-
-# Asegura que el script `main.py` está en el path
-sys.path.append('/app/scripts')
-
-def ejecutar_script():
-    import main
-    main.funcion_principal(
+from main import main
 
 default_args = {
-    'owner': 'airflow',
+    'owner': 'MarianoQ',
     'depends_on_past': False,
     'email_on_failure': False,
     'email_on_retry': False,
@@ -20,16 +13,21 @@ default_args = {
 }
 
 dag = DAG(
-    'mi_dag_diario',
-    description='Un DAG que corre diariamente',
-    schedule_interval=timedelta(days=1),
-    start_date=datetime(2023, 1, 1),
-    catchup=False,
+    'Spotify_Data_Extraction',
     default_args=default_args,
+    description='A DAG to extract top tracks from Spotify and insert them into a db Redshift',
+    schedule_interval='@daily',
+    start_date=datetime(2024, 6, 1),
+    catchup=False
 )
 
-tarea = PythonOperator(
-    task_id='ejecutar_script',
-    python_callable=ejecutar_script,
-    dag=dag,
+def extract_data():
+    main()
+
+extract_task = PythonOperator(
+    task_id='extract_data',
+    python_callable=extract_data,
+    dag=dag
 )
+
+extract_task

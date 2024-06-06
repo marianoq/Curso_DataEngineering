@@ -8,9 +8,8 @@ RUN pip install --no-cache-dir apache-airflow spotipy pandas tabulate psycopg2-b
 WORKDIR /app
 
 # Copia los archivos de tu proyecto
-COPY dags/ ./dags/
-COPY scripts/ ./scripts/
-COPY requirements.txt .
+COPY dags/ ./dags/  
+COPY requirements.txt . 
 
 # Instala las dependencias del proyecto
 RUN pip install --no-cache-dir -r requirements.txt
