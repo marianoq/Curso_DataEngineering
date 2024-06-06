@@ -8,7 +8,7 @@ sys.path.append('/app/scripts')
 
 def ejecutar_script():
     import main
-    main.main()
+    main.funcion_principal(
 
 default_args = {
     'owner': 'airflow',

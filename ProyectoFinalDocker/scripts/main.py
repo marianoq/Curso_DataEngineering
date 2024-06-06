@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import url
 import spotipy
@@ -6,7 +7,6 @@ from datetime import datetime
 import pandas as pd
 from config import DB_DBNAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, SP_CLIENT_ID, SP_CLIENT_SECRET
 from tabulate import tabulate
-import logging
 
 # Logging
 logging.basicConfig(
@@ -19,7 +19,6 @@ logging.basicConfig(
     ]
 )
 
-# Conexión el motor de la base de datos utilizando SQLAlchemy
 def create_db_engine():
     try:
         db_url = url.URL.create(
@@ -37,7 +36,6 @@ def create_db_engine():
         logging.error(f"Error al conectar a la base de datos: {e}")
         return None
 
-# Creo la tabla sino existe en mi esquema 
 def create_table(engine):
     try:
         with engine.connect() as connection:
@@ -61,7 +59,6 @@ def create_table(engine):
     except exc.SQLAlchemyError as e:
         logging.error(f"Error al crear la tabla: {e}")
 
-# Conecto Spotify
 def connect_to_spotify():
     try:
         client_credentials_manager = SpotifyClientCredentials(SP_CLIENT_ID, SP_CLIENT_SECRET)
@@ -72,7 +69,6 @@ def connect_to_spotify():
         logging.error(f"Error al conectar a Spotify: {e}")
         return None
 
-# Obtengo el top 50 de spotify
 def get_top_tracks_in_argentina(spotify_client):
     try:
         top_tracks = spotify_client.playlist_tracks('37i9dQZEVXbMMy2roB9myp')
@@ -112,13 +108,11 @@ def get_top_tracks_in_argentina(spotify_client):
         logging.error(f"Error al obtener los tracks más escuchados en Argentina: {e}")
         return None
 
-# Lo uso para mostrar los datos en consola
 def log_dataframe(df):
     filtered_df = df[['artist_name', 'track_name', 'top_position', 'spotify_id']]
     table_str = tabulate(filtered_df, headers='keys', tablefmt='psql')
     logging.info("\n\nDatos leidos en Spotify: \n%s", table_str)
 
-# Función para insertar el DataFrame en la base de datos y devolver los datos insertados en un DataFrame
 def insert_dataframe_to_db(engine, df):
     inserted_rows = []
     try:
@@ -158,8 +152,7 @@ def insert_dataframe_to_db(engine, df):
         logging.error(f"Error al insertar DataFrame en la base de datos: {e}")
     return pd.DataFrame(inserted_rows)
 
-# Bloque principal de ejecución
-def main():
+def funcion_principal():
     engine = create_db_engine()
     spotify_client = connect_to_spotify()
 
@@ -177,4 +170,4 @@ def main():
         logging.error("No se pudo completar el proceso debido a errores de conexión.")
 
 if __name__ == '__main__':
-    main()
+    funcion_principal()
