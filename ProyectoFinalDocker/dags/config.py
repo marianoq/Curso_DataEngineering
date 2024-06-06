@@ -11,13 +11,6 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 load_dotenv()
 
 # Leo clave de cifrado
-#try:
-#    with open('clave_proyectofinal.key', 'rb') as file:
-#        clave = file.read()
-#except FileNotFoundError:
-#    logging.error("Archivo de clave no encontrado.")
-#    raise
-
 clave = os.getenv("KEY")
 
 # Creo el objeto Fernet con la clave
